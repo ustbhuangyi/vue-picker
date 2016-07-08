@@ -96,7 +96,7 @@
 
         this.$dispatch('picker.cancel');
       },
-      show() {
+      show(next) {
         this.state = STATE_SHOW;
 
         if (!this.wheels) {
@@ -104,22 +104,16 @@
             this.wheels = [];
             let wheelWrapper = this.$els.wheelWrapper;
             for (let i = 0; i < this.length; i++) {
-              this.wheels[i] = new Wheel(wheelWrapper.children[i], {
-                tap: 'wheelTap',
-                selectedIndex: this.pickerSelectedIndex[i]
-              });
-              ((index) => {
-                this.wheels[index].on('scrollEnd', () => {
-                  this.$dispatch('picker.change', index, this.wheels[index].getSelectedIndex());
-                });
-              })(i);
+              this._createWheel(wheelWrapper, i);
             }
+            next && next();
           });
         } else {
           for (let i = 0; i < this.length; i++) {
             this.wheels[i].enable();
             this.wheels[i].goTo(this.pickerSelectedIndex[i]);
           }
+          next && next();
         }
       },
       hide() {
@@ -135,8 +129,7 @@
         let wheel = this.wheels[index];
         if (scroll && wheel) {
           let oldData = this.pickerData[index];
-          this.pickerData[index] = data;
-
+          this.pickerData.$set(index, data);
           let selectedIndex = wheel.getSelectedIndex();
           let dist = 0;
           if (oldData.length) {
@@ -149,10 +142,25 @@
             }
           }
           this.pickerSelectedIndex[index] = dist;
-          wheel.refresh();
-          wheel.goTo(dist);
+          this.$nextTick(() => {
+            // recreate wheel so that the wrapperHeight will be correct.
+            wheel = this._createWheel(wheelWrapper, index);
+            wheel.goTo(dist);
+          });
           return dist;
         }
+      },
+      _createWheel(wheelWrapper, i) {
+        this.wheels[i] = new Wheel(wheelWrapper.children[i], {
+          tap: 'wheelTap',
+          selectedIndex: this.pickerSelectedIndex[i]
+        });
+        ((index) => {
+          this.wheels[index].on('scrollEnd', () => {
+            this.$dispatch('picker.change', index, this.wheels[index].getSelectedIndex());
+          });
+        })(i);
+        return this.wheels[i];
       }
     }
   };
